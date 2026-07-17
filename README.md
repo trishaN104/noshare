@@ -123,7 +123,6 @@ tools/plot/           dependency-free CSV -> SVG chart generator (stdlib Python)
 docs/design.md        algorithms + memory-ordering reasoning
 docs/results/         benchmark CSVs and generated charts
 CMakeLists.txt        Linux/CI build   ·   build.ps1  Windows/MSVC build
-PLAN.md               the full end-state plan (five-pillar target)
 ```
 
 ## Concepts this demonstrates
