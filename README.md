@@ -3,10 +3,9 @@
 A from-scratch family of **bounded lock-free queues** in modern C++ — SPSC,
 MPSC, and MPMC — plus a **cross-process shared-memory transport** and a
 **latency microscope** that attributes tail-latency spikes to their root cause.
-Built around measuring the *distribution* honestly, not just quoting an average.
+Built around measuring the *distribution* honestly.
 
-See [`PLAN.md`](PLAN.md) for the full five-pillar design and
-[`docs/design.md`](docs/design.md) for the algorithms and memory-ordering
+See [`docs/design.md`](docs/design.md) for the algorithms and memory-ordering
 reasoning.
 
 > **Scope & data note:** this is a personal project. It contains **no**
@@ -51,7 +50,7 @@ q.try_pop(x);                  // consumer thread; false if empty
 ## Results
 
 Measured locally on a general-purpose developer machine (specs intentionally
-omitted). **These numbers are illustrative, not authoritative** — the benchmark
+omitted). **These numbers are illustrative** — the benchmark
 was not run on an isolated box. Reproduce on your own hardware for numbers you
 can trust.
 
@@ -67,7 +66,7 @@ can trust.
 *milliseconds* on a shared, non-isolated machine — the OS scheduler and
 background work produce large, rare stalls. The latency microscope exists to
 **attribute** that tail (on Linux it correlates spikes with involuntary context
-switches); the noise is the motivation, not a bug to hide.
+switches).
 
 ### Charts
 
@@ -135,19 +134,6 @@ cache-line isolation · ring buffers with power-of-two masking · cross-process
 shared memory (`mmap` / `CreateFileMapping`) · tail-latency thinking (p50 →
 p99.9) and its attribution · differential testing against a reference oracle ·
 disciplined benchmarking (warm-up, thread pinning, distribution over average).
-
-## Future work
-
-Honest about what would make the numbers lab-grade and the coverage deeper:
-
-- **Isolated-core latency** — pin to `isolcpus` cores with interrupts steered
-  away, to publish p99.9 tails that reflect the queue, not the scheduler.
-- **Reproduce a published baseline** — run a third-party queue (e.g. a well-known
-  MPMC ring) on the same box and compare head-to-head, not just against a mutex.
-- **Windows-native sanitizers** — TSan/UBSan currently run in CI on Linux only;
-  add equivalent race checking on the Windows toolchain.
-- **Batched claim & huge pages** — amortize the atomic per operation and reduce
-  TLB pressure on the shared-memory path.
 
 ## License
 
