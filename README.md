@@ -17,9 +17,8 @@ reasoning.
 
 ## Why this exists
 
-Most "fast queue" projects report an *average* and stop. Real high-performance
-systems care about the **tail** — the p99 / p99.9 latency and *why* it spikes.
-This project measures the distribution honestly and then explains it.
+Most "fast queue" projects report an *average* and stop.
+This project measures **tail** (the p99 / p99.9 latency and *why* it spikes) the distribution honestly and then explains it.
 
 ## What's inside
 
