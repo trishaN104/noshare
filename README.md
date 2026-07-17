@@ -1,4 +1,4 @@
-# lockfree-spsc
+# noshare
 
 A from-scratch family of **bounded lock-free queues** in modern C++ — SPSC,
 MPSC, and MPMC — plus a **cross-process shared-memory transport** and a
