@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure
+
+  sanitizers:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        san: [address, thread, undefined]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure (${{ matrix.san }})
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DLFQ_SANITIZE=${{ matrix.san }}
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Run sanitized tests
+        run: ctest --test-dir build --output-on-failure
