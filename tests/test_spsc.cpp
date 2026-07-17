@@ -11,6 +11,8 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
+#include <memory>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -112,6 +114,76 @@ void test_concurrent_stress() {
     CHECK(ok.load());
 }
 
+// A type that counts live instances so we can prove the queue neither leaks nor
+// double-destroys elements.
+struct Counted {
+    static std::atomic<int> live;
+    int v{0};
+    Counted() { live.fetch_add(1); }
+    explicit Counted(int x) : v(x) { live.fetch_add(1); }
+    Counted(const Counted& o) : v(o.v) { live.fetch_add(1); }
+    Counted& operator=(const Counted& o) { v = o.v; return *this; }
+    ~Counted() { live.fetch_sub(1); }
+};
+std::atomic<int> Counted::live{0};
+
+void test_nontrivial_type() {
+    std::printf("test_nontrivial_type\n");
+    lfq::SpscQueue<std::string> q(8);
+    CHECK(q.try_push(std::string("hello")));
+    CHECK(q.try_push(std::string("world")));
+    std::string out;
+    CHECK(q.try_pop(out));
+    CHECK(out == "hello");
+    CHECK(q.try_pop(out));
+    CHECK(out == "world");
+}
+
+void test_move_only_type() {
+    std::printf("test_move_only_type\n");
+    lfq::SpscQueue<std::unique_ptr<int>> q(8);
+    CHECK(q.try_push(std::make_unique<int>(7)));
+    std::unique_ptr<int> out;
+    CHECK(q.try_pop(out));
+    CHECK(out && *out == 7);
+}
+
+void test_destructor_drains() {
+    std::printf("test_destructor_drains\n");
+    const int before = Counted::live.load();
+    {
+        lfq::SpscQueue<Counted> q(8);
+        for (int i = 0; i < 5; ++i) CHECK(q.try_push(Counted(i)));
+        Counted out;
+        CHECK(q.try_pop(out));  // remove one; four remain in the queue
+    }  // queue destructor must destroy the four leftovers (plus temporaries gone)
+    CHECK(Counted::live.load() == before);  // no leak, no double-free
+}
+
+void test_min_capacity() {
+    std::printf("test_min_capacity\n");
+    lfq::SpscQueue<int> q(1);
+    CHECK(q.capacity() == 2);
+    CHECK(q.try_push(1));
+    CHECK(q.try_push(2));
+    CHECK(!q.try_push(3));  // full at 2
+    int out = -1;
+    CHECK(q.try_pop(out) && out == 1);
+    CHECK(q.try_pop(out) && out == 2);
+    CHECK(!q.try_pop(out));
+}
+
+void test_size_tracking() {
+    std::printf("test_size_tracking\n");
+    lfq::SpscQueue<int> q(16);
+    CHECK(q.size() == 0);
+    for (int i = 0; i < 10; ++i) q.try_push(i);
+    CHECK(q.size() == 10);
+    int out = -1;
+    for (int i = 0; i < 4; ++i) q.try_pop(out);
+    CHECK(q.size() == 6);
+}
+
 }  // namespace
 
 int main() {
@@ -121,6 +193,11 @@ int main() {
     test_wraparound();
     test_capacity_rounding();
     test_concurrent_stress();
+    test_nontrivial_type();
+    test_move_only_type();
+    test_destructor_drains();
+    test_min_capacity();
+    test_size_tracking();
 
     std::printf("\n%d checks, %d failures\n", g_checks, g_failures);
     if (g_failures == 0) {

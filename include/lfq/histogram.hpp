@@ -41,7 +41,9 @@ public:
         std::uint64_t seen = 0;
         for (std::size_t i = 0; i < buckets_.size(); ++i) {
             seen += buckets_[i];
-            if (seen >= target && buckets_[i]) return bucket_value(i);
+            if (seen >= target && buckets_[i]) {
+                return std::min(bucket_value(i), max_);
+            }
         }
         return max_;
     }
@@ -56,12 +58,15 @@ private:
         return std::min(idx, buckets_.size() - 1);
     }
 
+    // Upper (inclusive) bound of the bucket, so reported percentiles never
+    // understate the true latency. Values in the linear region are exact.
     std::uint64_t bucket_value(std::size_t idx) const {
         if (idx < sub_count_) return idx;
         const std::size_t octave = idx / sub_count_;
         const std::uint64_t sub = idx % sub_count_;
         const std::uint64_t base = std::uint64_t{1} << octave;
-        return base + (sub << (octave - sub_bits_));
+        const std::uint64_t width = std::uint64_t{1} << (octave - sub_bits_);
+        return base + (sub + 1) * width - 1;
     }
 
     static int clz(std::uint64_t x) {

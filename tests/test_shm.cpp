@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <string>
 #include <thread>
+#include <utility>
 
 namespace {
 
@@ -86,6 +87,38 @@ void test_streaming_across_mappings() {
     CHECK(ok.load());
 }
 
+void test_capacity_rounding() {
+    std::printf("test_capacity_rounding\n");
+    auto q = lfq::ShmSpscChannel<Payload>::create("unit_round", 100);
+    CHECK(q.capacity() == 128);  // rounded up to a power of two
+}
+
+void test_size_mismatch_throws() {
+    std::printf("test_size_mismatch_throws\n");
+    // Owner creates a region sized for Payload; opening it as a differently
+    // sized element type must be rejected.
+    struct Big { std::uint64_t a, b, c; };
+    auto owner = lfq::ShmSpscChannel<Payload>::create("unit_mismatch", 64);
+    bool threw = false;
+    try {
+        auto bad = lfq::ShmSpscChannel<Big>::open("unit_mismatch");
+        (void)bad;
+    } catch (const std::exception&) {
+        threw = true;
+    }
+    CHECK(threw);
+}
+
+void test_move_semantics() {
+    std::printf("test_move_semantics\n");
+    auto a = lfq::ShmSpscChannel<Payload>::create("unit_move", 64);
+    CHECK(a.try_push(Payload{1, 1}));
+    auto b = std::move(a);  // b now owns the mapping
+    Payload out{};
+    CHECK(b.try_pop(out));
+    CHECK(out.seq == 1);
+}
+
 }  // namespace
 
 int main() {
@@ -93,6 +126,9 @@ int main() {
     try {
         test_create_open_roundtrip();
         test_streaming_across_mappings();
+        test_capacity_rounding();
+        test_size_mismatch_throws();
+        test_move_semantics();
     } catch (const std::exception& e) {
         std::printf("  EXCEPTION: %s\n", e.what());
         ++g_failures;

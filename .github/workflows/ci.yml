@@ -37,3 +37,37 @@ jobs:
 
       - name: Run sanitized tests
         run: ctest --test-dir build --output-on-failure
+
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      # Shared GitHub runners are not isolated-core machines, so treat these as
+      # indicative, not lab-grade. A Linux runner still gives a finer timer and
+      # more consistent scheduling than an emulated dev box.
+      - name: Run benchmarks
+        run: |
+          mkdir -p docs/results
+          ./build/bench_spsc      | tee docs/results/bench_spsc.txt
+          ./build/bench_compare   | tee docs/results/bench_compare.txt
+          ./build/bench_csv docs/results
+
+      - name: Render charts
+        run: python tools/plot/plot.py docs/results
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: docs/results/

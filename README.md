@@ -69,6 +69,26 @@ background work produce large, rare stalls. The latency microscope exists to
 **attribute** that tail (on Linux it correlates spikes with involuntary context
 switches); the noise is the motivation, not a bug to hide.
 
+### Charts
+
+`bench_csv` emits results as CSV and `tools/plot/plot.py` (Python standard
+library only — nothing to install) renders them to SVG:
+
+```bash
+./build/bench_csv docs/results          # writes scaling.csv, latency_cdf.csv
+python tools/plot/plot.py docs/results   # writes scaling.svg, latency_cdf.svg
+```
+
+![Throughput scaling: lock-free vs mutex](docs/results/scaling.svg)
+
+Throughput of the lock-free MPMC queue versus a mutex-guarded `std::queue` as the
+producer/consumer count grows. The lock-free queue wins at every point, and the
+*shape* — throughput falling under contention — is the interesting part to
+explain (cache-line ping-pong on the shared indices). The latency CDF is produced
+by the same tool and uploaded as a CI artifact, where a Linux runner gives a
+finer timer than this emulated dev box. Absolute numbers are illustrative;
+reproduce them yourself.
+
 ## Build & run
 
 **Windows (MSVC), from the repo root:**
@@ -98,9 +118,11 @@ CI runs the tests plus an ASan/TSan/UBSan matrix on every push.
 ```
 include/lfq/          spsc / mpsc / mpmc queues, shm transport, timing, histogram
 tests/                correctness, conservation, and differential-vs-oracle tests
-bench/                throughput + latency benchmark, lock-free-vs-mutex compare
+bench/                throughput + latency benchmark, lock-free-vs-mutex compare, CSV emitter
 tools/latency_scope/  tail-latency attribution tool
+tools/plot/           dependency-free CSV -> SVG chart generator (stdlib Python)
 docs/design.md        algorithms + memory-ordering reasoning
+docs/results/         benchmark CSVs and generated charts
 CMakeLists.txt        Linux/CI build   ·   build.ps1  Windows/MSVC build
 PLAN.md               the full end-state plan (five-pillar target)
 ```
@@ -113,6 +135,19 @@ cache-line isolation · ring buffers with power-of-two masking · cross-process
 shared memory (`mmap` / `CreateFileMapping`) · tail-latency thinking (p50 →
 p99.9) and its attribution · differential testing against a reference oracle ·
 disciplined benchmarking (warm-up, thread pinning, distribution over average).
+
+## Future work
+
+Honest about what would make the numbers lab-grade and the coverage deeper:
+
+- **Isolated-core latency** — pin to `isolcpus` cores with interrupts steered
+  away, to publish p99.9 tails that reflect the queue, not the scheduler.
+- **Reproduce a published baseline** — run a third-party queue (e.g. a well-known
+  MPMC ring) on the same box and compare head-to-head, not just against a mutex.
+- **Windows-native sanitizers** — TSan/UBSan currently run in CI on Linux only;
+  add equivalent race checking on the Windows toolchain.
+- **Batched claim & huge pages** — amortize the atomic per operation and reduce
+  TLB pressure on the shared-memory path.
 
 ## License
 

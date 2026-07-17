@@ -9,6 +9,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -97,6 +98,37 @@ void test_multi_producer_conservation() {
     CHECK(ok.load());
 }
 
+void test_nontrivial_type() {
+    std::printf("test_nontrivial_type\n");
+    lfq::MpscQueue<std::string> q(8);
+    CHECK(q.try_push(std::string("a")));
+    CHECK(q.try_push(std::string("b")));
+    std::string out;
+    CHECK(q.try_pop(out) && out == "a");
+    CHECK(q.try_pop(out) && out == "b");
+    CHECK(!q.try_pop(out));
+}
+
+void test_drain_after_full() {
+    std::printf("test_drain_after_full\n");
+    lfq::MpscQueue<int> q(4);
+    for (int i = 0; i < 4; ++i) CHECK(q.try_push(i));
+    CHECK(!q.try_push(99));
+    int out = -1;
+    for (int i = 0; i < 4; ++i) CHECK(q.try_pop(out) && out == i);
+    CHECK(!q.try_pop(out));
+    // Reusable after a full drain (sequence numbers advanced a full lap).
+    CHECK(q.try_push(100));
+    CHECK(q.try_pop(out) && out == 100);
+}
+
+void test_capacity_rounding() {
+    std::printf("test_capacity_rounding\n");
+    CHECK(lfq::MpscQueue<int>(3).capacity() == 4);
+    CHECK(lfq::MpscQueue<int>(100).capacity() == 128);
+    CHECK(lfq::MpscQueue<int>(1024).capacity() == 1024);
+}
+
 }  // namespace
 
 int main() {
@@ -104,6 +136,9 @@ int main() {
     test_fifo_single_producer();
     test_full_and_empty();
     test_multi_producer_conservation();
+    test_nontrivial_type();
+    test_drain_after_full();
+    test_capacity_rounding();
 
     std::printf("\n%d checks, %d failures\n", g_checks, g_failures);
     if (g_failures == 0) {

@@ -44,8 +44,11 @@ $cmd = "call `"$vcvars`" && cd /d `"$out`" && " +
        "cl $flags /I `"$root\include`" `"$root\tests\test_mpmc.cpp`" /Fe:test_mpmc.exe && " +
        "cl $flags /I `"$root\include`" `"$root\tests\test_shm.cpp`" /Fe:test_shm.exe && " +
        "cl $flags /I `"$root\include`" `"$root\tests\test_reference.cpp`" /Fe:test_reference.exe && " +
+       "cl $flags /I `"$root\include`" `"$root\tests\test_histogram.cpp`" /Fe:test_histogram.exe && " +
+       "cl $flags /I `"$root\include`" `"$root\tests\test_timing.cpp`" /Fe:test_timing.exe && " +
        "cl $flags /I `"$root\include`" `"$root\bench\bench_spsc.cpp`" /Fe:bench_spsc.exe && " +
        "cl $flags /I `"$root\include`" `"$root\bench\bench_compare.cpp`" /Fe:bench_compare.exe && " +
+       "cl $flags /I `"$root\include`" `"$root\bench\bench_csv.cpp`" /Fe:bench_csv.exe && " +
        "cl $flags /I `"$root\include`" `"$root\tools\latency_scope\scope.cpp`" /Fe:scope.exe && " +
        "echo BUILD_OK"
 
@@ -64,6 +67,10 @@ if ($Run) {
     if ($LASTEXITCODE -ne 0) { throw "Shared-memory tests failed" }
     & (Join-Path $out "test_reference.exe")
     if ($LASTEXITCODE -ne 0) { throw "Reference validation failed" }
+    & (Join-Path $out "test_histogram.exe")
+    if ($LASTEXITCODE -ne 0) { throw "Histogram tests failed" }
+    & (Join-Path $out "test_timing.exe")
+    if ($LASTEXITCODE -ne 0) { throw "Timing tests failed" }
     Write-Host "`n--- running benchmark ---" -ForegroundColor Cyan
     & (Join-Path $out "bench_spsc.exe")
     & (Join-Path $out "bench_compare.exe")
